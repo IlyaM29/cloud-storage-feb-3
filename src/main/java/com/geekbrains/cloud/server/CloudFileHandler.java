@@ -1,12 +1,9 @@
 package com.geekbrains.cloud.server;
 
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.OutputStream;
+import java.io.*;
 import java.net.Socket;
+import java.util.Arrays;
+import java.util.Objects;
 
 public class CloudFileHandler implements Runnable {
 
@@ -22,6 +19,7 @@ public class CloudFileHandler implements Runnable {
         os = new DataOutputStream(socket.getOutputStream());
         buf = new byte[BUFFER_SIZE];
         serverDirectory = new File("server");
+        os.writeUTF(serverDirectory.getName());
     }
 
     @Override
@@ -42,6 +40,26 @@ public class CloudFileHandler implements Runnable {
                         }
                     }
                     System.out.println("File: " + name + " is uploaded");
+                } else if ("#file_request#".equals(command)) {
+                    String name = is.readUTF();
+                    File selected = serverDirectory.toPath().resolve(name).toFile();
+                    os.writeLong(selected.length());
+                    try (InputStream fis = new FileInputStream(selected)) {
+                        while (fis.available() > 0) {
+                            int readBytes = fis.read(buf);
+                            os.write(buf, 0, readBytes);
+                        }
+                    }
+                    os.flush();
+                } else if ("#update_view#".equals(command)) {
+                    String[] listString = serverDirectory.list();
+                    StringBuilder list = new StringBuilder();
+                    for (String s : listString) {
+                        list.append(s + "|");
+                    }
+                    String s = list.toString();
+                    System.out.println(s);
+                    os.writeUTF(s);
                 } else {
                     System.err.println("Unknown command: " + command);
                 }
